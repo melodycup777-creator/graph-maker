@@ -83,6 +83,38 @@
       text-align: center;
     }
 
+    /* 収入入力 */
+    .income-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+    }
+
+    .income-row label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #166534;
+      white-space: nowrap;
+    }
+
+    .income-row input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      background: white;
+      transition: border-color 0.15s;
+    }
+
+    .income-row input:focus { border-color: #16a34a; }
+
     /* 入力フォーム */
     .input-row {
       display: flex;
@@ -133,7 +165,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 320px;
+      max-height: 240px;
       overflow-y: auto;
     }
 
@@ -178,15 +210,38 @@
 
     .btn-del:hover { color: #e55; }
 
-    .total-row {
+    /* 合計・貯金 */
+    .summary {
       margin-top: 16px;
       padding-top: 12px;
       border-top: 1px solid #eee;
       display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .summary-row {
+      display: flex;
       justify-content: space-between;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .summary-row.total {
       font-weight: 700;
       font-size: 15px;
+      color: #333;
     }
+
+    .summary-row.savings {
+      font-weight: 700;
+      font-size: 15px;
+      padding-top: 8px;
+      border-top: 1px dashed #eee;
+    }
+
+    .savings-positive { color: #16a34a; }
+    .savings-negative { color: #dc2626; }
 
     /* グラフ */
     .chart-wrap {
@@ -216,6 +271,11 @@
       <button id="nextMonth">&#8250;</button>
     </div>
 
+    <div class="income-row">
+      <label>収入</label>
+      <input type="number" id="incomeInput" placeholder="今月の収入を入力" min="0">
+    </div>
+
     <h2>支出を追加</h2>
     <div class="input-row">
       <input type="text" id="itemName" placeholder="項目名（例：食費）" maxlength="20">
@@ -225,9 +285,19 @@
 
     <ul class="item-list" id="itemList"></ul>
 
-    <div class="total-row">
-      <span>合計</span>
-      <span id="totalAmount">¥0</span>
+    <div class="summary">
+      <div class="summary-row">
+        <span>収入</span>
+        <span id="incomeDisplay">¥0</span>
+      </div>
+      <div class="summary-row total">
+        <span>支出合計</span>
+        <span id="totalAmount">¥0</span>
+      </div>
+      <div class="summary-row savings" id="savingsRow">
+        <span>貯金できる金額</span>
+        <span id="savingsAmount">¥0</span>
+      </div>
     </div>
   </div>
 
@@ -256,6 +326,10 @@
     return `expenses_${currentYear}_${String(currentMonth).padStart(2,'0')}`;
   }
 
+  function incomeKey() {
+    return `income_${currentYear}_${String(currentMonth).padStart(2,'0')}`;
+  }
+
   function loadItems() {
     try {
       return JSON.parse(localStorage.getItem(storageKey())) || [];
@@ -266,18 +340,37 @@
     localStorage.setItem(storageKey(), JSON.stringify(items));
   }
 
+  function loadIncome() {
+    return parseFloat(localStorage.getItem(incomeKey())) || 0;
+  }
+
+  function saveIncome(val) {
+    localStorage.setItem(incomeKey(), val);
+  }
+
   function formatYen(n) {
     return '¥' + Number(n).toLocaleString('ja-JP');
   }
 
   function render() {
-    const items = loadItems();
+    const rawItems = loadItems();
+    // 金額の多い順に並べ替え
+    const items = [...rawItems].sort((a, b) => b.amount - a.amount);
+
+    const income = loadIncome();
     const list = document.getElementById('itemList');
     const totalEl = document.getElementById('totalAmount');
+    const incomeDisplay = document.getElementById('incomeDisplay');
+    const savingsEl = document.getElementById('savingsAmount');
+    const savingsRow = document.getElementById('savingsRow');
     const emptyMsg = document.getElementById('emptyMsg');
     const canvas = document.getElementById('pieChart');
 
-    // リスト描画
+    // 収入欄の表示
+    document.getElementById('incomeInput').value = income > 0 ? income : '';
+    incomeDisplay.textContent = formatYen(income);
+
+    // 支出リスト描画
     list.innerHTML = '';
     items.forEach((item, i) => {
       const color = COLORS[i % COLORS.length];
@@ -286,7 +379,7 @@
         <span class="item-color" style="background:${color}"></span>
         <span class="item-name">${escapeHtml(item.name)}</span>
         <span class="item-amount">${formatYen(item.amount)}</span>
-        <button class="btn-del" data-index="${i}" title="削除">×</button>
+        <button class="btn-del" data-name="${escapeHtml(item.name)}" title="削除">×</button>
       `;
       list.appendChild(li);
     });
@@ -294,6 +387,13 @@
     // 合計
     const total = items.reduce((s, it) => s + Number(it.amount), 0);
     totalEl.textContent = formatYen(total);
+
+    // 貯金
+    const savings = income - total;
+    savingsEl.textContent = formatYen(Math.abs(savings));
+    savingsEl.className = savings >= 0 ? 'savings-positive' : 'savings-negative';
+    savingsRow.querySelector('span:first-child').textContent =
+      savings >= 0 ? '貯金できる金額' : '赤字';
 
     // グラフ
     if (items.length === 0) {
@@ -358,6 +458,7 @@
     currentMonth--;
     if (currentMonth < 1) { currentMonth = 12; currentYear--; }
     updateMonthLabel();
+    if (chart) { chart.destroy(); chart = null; }
     render();
   });
 
@@ -365,10 +466,18 @@
     currentMonth++;
     if (currentMonth > 12) { currentMonth = 1; currentYear++; }
     updateMonthLabel();
+    if (chart) { chart.destroy(); chart = null; }
     render();
   });
 
-  // 追加
+  // 収入の保存
+  document.getElementById('incomeInput').addEventListener('change', e => {
+    const val = parseFloat(e.target.value) || 0;
+    saveIncome(val);
+    render();
+  });
+
+  // 支出追加
   document.getElementById('addBtn').addEventListener('click', addItem);
   document.getElementById('itemAmount').addEventListener('keydown', e => {
     if (e.key === 'Enter') addItem();
@@ -393,14 +502,17 @@
     render();
   }
 
-  // 削除
+  // 削除（名前で一致する最初の1件を削除）
   document.getElementById('itemList').addEventListener('click', e => {
     const btn = e.target.closest('.btn-del');
     if (!btn) return;
-    const idx = parseInt(btn.dataset.index);
+    const name = btn.dataset.name;
     const items = loadItems();
-    items.splice(idx, 1);
-    saveItems(items);
+    const idx = items.findIndex(it => escapeHtml(it.name) === name);
+    if (idx !== -1) {
+      items.splice(idx, 1);
+      saveItems(items);
+    }
     render();
   });
 
