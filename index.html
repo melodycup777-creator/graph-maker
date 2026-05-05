@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>月次支出グラフメーカー</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -353,6 +352,71 @@
     return '¥' + Number(n).toLocaleString('ja-JP');
   }
 
+  const pieLabelPlugin = {
+    id: 'pieLabels',
+    afterDraw(chart) {
+      const ctx = chart.ctx;
+      const dataset = chart.data.datasets[0];
+      const meta = chart.getDatasetMeta(0);
+      const total = dataset.data.reduce((a, b) => a + Number(b), 0);
+      if (total === 0) return;
+
+      // 大きいスライス（0.5rad≒8%以上）は内側、小さいものは外側に描画
+      const INSIDE_THRESHOLD = 0.5;
+
+      meta.data.forEach((arc, i) => {
+        const value = Number(dataset.data[i]);
+        const label = chart.data.labels[i];
+        const arcAngle = arc.endAngle - arc.startAngle;
+        const midAngle = (arc.startAngle + arc.endAngle) / 2;
+        const cx = arc.x;
+        const cy = arc.y;
+        const outerR = arc.outerRadius;
+
+        if (arcAngle >= INSIDE_THRESHOLD) {
+          // 内側ラベル
+          const r = outerR * 0.65;
+          const x = cx + r * Math.cos(midAngle);
+          const y = cy + r * Math.sin(midAngle);
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 12px sans-serif';
+          ctx.shadowBlur = 3;
+          ctx.shadowColor = 'rgba(0,0,0,0.5)';
+          ctx.fillText(label, x, y - 8);
+          ctx.fillText(formatYen(value), x, y + 8);
+          ctx.restore();
+        } else {
+          // 外側ラベル（折れ線付き）
+          const p1 = { x: cx + outerR * Math.cos(midAngle), y: cy + outerR * Math.sin(midAngle) };
+          const p2 = { x: cx + (outerR + 18) * Math.cos(midAngle), y: cy + (outerR + 18) * Math.sin(midAngle) };
+          const isRight = Math.cos(midAngle) >= 0;
+          const p3 = { x: p2.x + (isRight ? 14 : -14), y: p2.y };
+          const textX = p3.x + (isRight ? 4 : -4);
+
+          ctx.save();
+          ctx.strokeStyle = '#aaa';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.lineTo(p3.x, p3.y);
+          ctx.stroke();
+
+          ctx.textAlign = isRight ? 'left' : 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#333';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.fillText(label, textX, p3.y - 7);
+          ctx.fillText(formatYen(value), textX, p3.y + 7);
+          ctx.restore();
+        }
+      });
+    }
+  };
+
   function render() {
     const rawItems = loadItems();
     // 金額の多い順に並べ替え
@@ -425,6 +489,7 @@
         type: 'pie',
         data,
         options: {
+          layout: { padding: 70 },
           plugins: {
             legend: {
               position: 'bottom',
@@ -438,21 +503,10 @@
                   return ` ${formatYen(val)}（${pct}%）`;
                 }
               }
-            },
-            datalabels: {
-              color: '#fff',
-              font: { size: 12, weight: 'bold' },
-              textShadowBlur: 4,
-              textShadowColor: 'rgba(0,0,0,0.4)',
-              formatter: (val, ctx) => {
-                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                const name = ctx.chart.data.labels[ctx.dataIndex];
-                return pct < 5 ? '' : `${name}\n${formatYen(val)}\n${pct}%`;
-              }
             }
           }
         },
-        plugins: [ChartDataLabels]
+        plugins: [pieLabelPlugin]
       });
     }
   }
