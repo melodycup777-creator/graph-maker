@@ -446,7 +446,8 @@
               textShadowColor: 'rgba(0,0,0,0.4)',
               formatter: (val, ctx) => {
                 const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                return pct < 5 ? '' : `${formatYen(val)}\n${pct}%`;
+                const name = ctx.chart.data.labels[ctx.dataIndex];
+                return pct < 5 ? '' : `${name}\n${formatYen(val)}\n${pct}%`;
               }
             }
           }
