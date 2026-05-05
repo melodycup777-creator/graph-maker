@@ -28,13 +28,20 @@
       max-width: 960px;
       margin: 32px auto;
       padding: 0 16px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 24px;
     }
 
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
     @media (max-width: 680px) {
-      .container { grid-template-columns: 1fr; }
+      .input-grid { grid-template-columns: 1fr; }
     }
 
     .card {
@@ -247,7 +254,7 @@
     .chart-wrap {
       position: relative;
       width: 100%;
-      height: 500px;
+      height: 700px;
     }
 
     .empty-msg {
@@ -263,7 +270,7 @@
 <header>月次支出グラフメーカー</header>
 
 <div class="container">
-  <!-- 左カード：入力 -->
+  <!-- 上カード：入力（2カラム） -->
   <div class="card">
     <div class="month-selector">
       <button id="prevMonth">&#8249;</button>
@@ -271,37 +278,46 @@
       <button id="nextMonth">&#8250;</button>
     </div>
 
-    <div class="income-row">
-      <label>収入</label>
-      <input type="number" id="incomeInput" placeholder="今月の収入を入力" min="0">
-    </div>
+    <div class="input-grid">
+      <!-- 左：収入・支出追加 -->
+      <div>
+        <div class="income-row">
+          <label>収入</label>
+          <input type="number" id="incomeInput" placeholder="今月の収入を入力" min="0">
+        </div>
 
-    <h2>支出を追加</h2>
-    <div class="input-row">
-      <input type="text" id="itemName" placeholder="項目名（例：食費）" maxlength="20">
-      <input type="number" id="itemAmount" placeholder="金額" min="0">
-      <button class="btn-add" id="addBtn">追加</button>
-    </div>
-
-    <ul class="item-list" id="itemList"></ul>
-
-    <div class="summary">
-      <div class="summary-row">
-        <span>収入</span>
-        <span id="incomeDisplay">¥0</span>
+        <h2>支出を追加</h2>
+        <div class="input-row">
+          <input type="text" id="itemName" placeholder="項目名（例：食費）" maxlength="20">
+          <input type="number" id="itemAmount" placeholder="金額" min="0">
+          <button class="btn-add" id="addBtn">追加</button>
+        </div>
       </div>
-      <div class="summary-row total">
-        <span>支出合計</span>
-        <span id="totalAmount">¥0</span>
-      </div>
-      <div class="summary-row savings" id="savingsRow">
-        <span>貯金できる金額</span>
-        <span id="savingsAmount">¥0</span>
+
+      <!-- 右：リスト・サマリー -->
+      <div>
+        <h2>支出一覧</h2>
+        <ul class="item-list" id="itemList"></ul>
+
+        <div class="summary">
+          <div class="summary-row">
+            <span>収入</span>
+            <span id="incomeDisplay">¥0</span>
+          </div>
+          <div class="summary-row total">
+            <span>支出合計</span>
+            <span id="totalAmount">¥0</span>
+          </div>
+          <div class="summary-row savings" id="savingsRow">
+            <span>貯金できる金額</span>
+            <span id="savingsAmount">¥0</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 右カード：グラフ -->
+  <!-- 下カード：グラフ（全幅） -->
   <div class="card">
     <h2>円グラフ</h2>
     <div class="chart-wrap">
