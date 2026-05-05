@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>月次支出グラフメーカー</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -437,9 +438,20 @@
                   return ` ${formatYen(val)}（${pct}%）`;
                 }
               }
+            },
+            datalabels: {
+              color: '#fff',
+              font: { size: 12, weight: 'bold' },
+              textShadowBlur: 4,
+              textShadowColor: 'rgba(0,0,0,0.4)',
+              formatter: (val, ctx) => {
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return pct < 5 ? '' : `${formatYen(val)}\n${pct}%`;
+              }
             }
           }
-        }
+        },
+        plugins: [ChartDataLabels]
       });
     }
   }
