@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月次支出グラフメーカー</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #4f46e5;
+      color: white;
+      padding: 16px 24px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 32px auto;
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 680px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .card h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* 月セレクター */
+    .month-selector {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .month-selector button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      cursor: pointer;
+      color: #555;
+      transition: background 0.15s;
+    }
+
+    .month-selector button:hover { background: #f0f0f0; }
+
+    .month-label {
+      font-size: 18px;
+      font-weight: 700;
+      color: #4f46e5;
+      min-width: 120px;
+      text-align: center;
+    }
+
+    /* 入力フォーム */
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .input-row input[type="text"] {
+      flex: 2;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-row input[type="number"] {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input-row input:focus { border-color: #4f46e5; }
+
+    .btn-add {
+      padding: 8px 16px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover { background: #4338ca; }
+
+    /* 項目リスト */
+    .item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .item-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f9f9fb;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .item-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .item-name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .item-amount {
+      color: #666;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    .btn-del {
+      background: none;
+      border: none;
+      color: #bbb;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+
+    .btn-del:hover { color: #e55; }
+
+    .total-row {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    /* グラフ */
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: #bbb;
+      font-size: 14px;
+      padding: 60px 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>月次支出グラフメーカー</header>
+
+<div class="container">
+  <!-- 左カード：入力 -->
+  <div class="card">
+    <div class="month-selector">
+      <button id="prevMonth">&#8249;</button>
+      <div class="month-label" id="monthLabel"></div>
+      <button id="nextMonth">&#8250;</button>
+    </div>
+
+    <h2>支出を追加</h2>
+    <div class="input-row">
+      <input type="text" id="itemName" placeholder="項目名（例：食費）" maxlength="20">
+      <input type="number" id="itemAmount" placeholder="金額" min="0">
+      <button class="btn-add" id="addBtn">追加</button>
+    </div>
+
+    <ul class="item-list" id="itemList"></ul>
+
+    <div class="total-row">
+      <span>合計</span>
+      <span id="totalAmount">¥0</span>
+    </div>
+  </div>
+
+  <!-- 右カード：グラフ -->
+  <div class="card">
+    <h2>円グラフ</h2>
+    <div class="chart-wrap">
+      <canvas id="pieChart"></canvas>
+      <div class="empty-msg" id="emptyMsg">項目を追加するとグラフが表示されます</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const COLORS = [
+    '#4f46e5','#06b6d4','#10b981','#f59e0b','#ef4444',
+    '#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1',
+    '#84cc16','#0ea5e9','#a855f7','#e879f9','#22d3ee'
+  ];
+
+  let currentYear = new Date().getFullYear();
+  let currentMonth = new Date().getMonth() + 1;
+  let chart = null;
+
+  function storageKey() {
+    return `expenses_${currentYear}_${String(currentMonth).padStart(2,'0')}`;
+  }
+
+  function loadItems() {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey())) || [];
+    } catch { return []; }
+  }
+
+  function saveItems(items) {
+    localStorage.setItem(storageKey(), JSON.stringify(items));
+  }
+
+  function formatYen(n) {
+    return '¥' + Number(n).toLocaleString('ja-JP');
+  }
+
+  function render() {
+    const items = loadItems();
+    const list = document.getElementById('itemList');
+    const totalEl = document.getElementById('totalAmount');
+    const emptyMsg = document.getElementById('emptyMsg');
+    const canvas = document.getElementById('pieChart');
+
+    // リスト描画
+    list.innerHTML = '';
+    items.forEach((item, i) => {
+      const color = COLORS[i % COLORS.length];
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="item-color" style="background:${color}"></span>
+        <span class="item-name">${escapeHtml(item.name)}</span>
+        <span class="item-amount">${formatYen(item.amount)}</span>
+        <button class="btn-del" data-index="${i}" title="削除">×</button>
+      `;
+      list.appendChild(li);
+    });
+
+    // 合計
+    const total = items.reduce((s, it) => s + Number(it.amount), 0);
+    totalEl.textContent = formatYen(total);
+
+    // グラフ
+    if (items.length === 0) {
+      emptyMsg.style.display = 'block';
+      canvas.style.display = 'none';
+      if (chart) { chart.destroy(); chart = null; }
+      return;
+    }
+
+    emptyMsg.style.display = 'none';
+    canvas.style.display = 'block';
+
+    const data = {
+      labels: items.map(it => it.name),
+      datasets: [{
+        data: items.map(it => it.amount),
+        backgroundColor: items.map((_, i) => COLORS[i % COLORS.length]),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    };
+
+    if (chart) {
+      chart.data = data;
+      chart.update();
+    } else {
+      chart = new Chart(canvas, {
+        type: 'pie',
+        data,
+        options: {
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { size: 12 }, padding: 12 }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const val = ctx.parsed;
+                  const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                  return ` ${formatYen(val)}（${pct}%）`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  function updateMonthLabel() {
+    document.getElementById('monthLabel').textContent =
+      `${currentYear}年 ${currentMonth}月`;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // 月移動
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 1) { currentMonth = 12; currentYear--; }
+    updateMonthLabel();
+    render();
+  });
+
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+    updateMonthLabel();
+    render();
+  });
+
+  // 追加
+  document.getElementById('addBtn').addEventListener('click', addItem);
+  document.getElementById('itemAmount').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addItem();
+  });
+
+  function addItem() {
+    const nameEl = document.getElementById('itemName');
+    const amountEl = document.getElementById('itemAmount');
+    const name = nameEl.value.trim();
+    const amount = parseFloat(amountEl.value);
+
+    if (!name) { nameEl.focus(); return; }
+    if (isNaN(amount) || amount <= 0) { amountEl.focus(); return; }
+
+    const items = loadItems();
+    items.push({ name, amount });
+    saveItems(items);
+
+    nameEl.value = '';
+    amountEl.value = '';
+    nameEl.focus();
+    render();
+  }
+
+  // 削除
+  document.getElementById('itemList').addEventListener('click', e => {
+    const btn = e.target.closest('.btn-del');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.index);
+    const items = loadItems();
+    items.splice(idx, 1);
+    saveItems(items);
+    render();
+  });
+
+  // 初期化
+  updateMonthLabel();
+  render();
+</script>
+</body>
+</html>
